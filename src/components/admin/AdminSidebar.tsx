@@ -34,6 +34,7 @@ import {
   Quote,
   Navigation,
   Palette,
+  ShieldCheck,
   Menu,
   LogOut,
   ChevronDown,
@@ -60,6 +61,7 @@ const navItems: NavItem[] = [
   { label: "Testimonials", href: "/admin/content/testimonials", icon: Quote },
   { label: "Navigation Items", href: "/admin/content/navigation", icon: Navigation },
   { label: "Branding & Settings", href: "/admin/branding", icon: Palette },
+  { label: "Admin Users", href: "/admin/users", icon: ShieldCheck },
 ]
 
 interface AdminSidebarProps {
