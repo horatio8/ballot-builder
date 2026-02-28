@@ -1,0 +1,291 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== AUTH (NextAuth) ====================
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  isAdmin       Boolean   @default(false)
+  accounts      Account[]
+  sessions      Session[]
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==================== ELECTION DATA ====================
+
+model Election {
+  id                 String       @id @default(cuid())
+  name               String
+  state              String
+  date               DateTime
+  enrollmentDeadline DateTime?
+  description        String?
+  isActive           Boolean      @default(false)
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  electorates        Electorate[]
+  parties            Party[]
+  candidates         Candidate[]
+  policyQuestions    PolicyQuestion[]
+}
+
+model Electorate {
+  id                String      @id @default(cuid())
+  name              String
+  state             String
+  type              String      @default("lower") // lower or upper
+  historicalResults  String?
+  electionId        String
+  election          Election    @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidates        Candidate[]
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([name, electionId])
+}
+
+model Party {
+  id           String                @id @default(cuid())
+  name         String
+  abbreviation String?
+  color        String?
+  logo         String?
+  website      String?
+  electionId   String
+  election     Election              @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  candidates   Candidate[]
+  assessments  CandidateAssessment[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@unique([name, electionId])
+}
+
+model Candidate {
+  id              String                @id @default(cuid())
+  name            String
+  photo           String?
+  website         String?
+  votingRecordUrl String?
+  isIncumbent     Boolean               @default(false)
+  partyId         String?
+  party           Party?                @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  electorateId    String
+  electorate      Electorate            @relation(fields: [electorateId], references: [id], onDelete: Cascade)
+  electionId      String
+  election        Election              @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  assessments     CandidateAssessment[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
+
+// ==================== POLICY & QUESTIONNAIRE ====================
+
+model PolicyCategory {
+  id          String           @id @default(cuid())
+  name        String
+  description String?
+  icon        String?
+  sortOrder   Int              @default(0)
+  questions   PolicyQuestion[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model PolicyQuestion {
+  id          String         @id @default(cuid())
+  questionText String
+  description String?
+  sortOrder   Int            @default(0)
+  categoryId  String
+  category    PolicyCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  electionId  String
+  election    Election       @relation(fields: [electionId], references: [id], onDelete: Cascade)
+  options     PolicyOption[]
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+}
+
+model PolicyOption {
+  id              String                @id @default(cuid())
+  optionText      String
+  description     String?
+  policyStatement String?
+  sortOrder       Int                   @default(0)
+  questionId      String
+  question        PolicyQuestion        @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  assessments     CandidateAssessment[]
+  userResponses   UserResponse[]
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+}
+
+model CandidateAssessment {
+  id             String       @id @default(cuid())
+  agreementScore Float        @default(0) // 0, 1, 1.5, 2
+  evidence       String?
+  sourceUrl      String?
+  sourceType     String?
+  candidateId    String?
+  candidate      Candidate?   @relation(fields: [candidateId], references: [id], onDelete: Cascade)
+  partyId        String?
+  party          Party?       @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  policyOptionId String
+  policyOption   PolicyOption @relation(fields: [policyOptionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([candidateId, policyOptionId])
+  @@unique([partyId, policyOptionId])
+}
+
+// ==================== USER RESPONSES (anonymous) ====================
+
+model UserSession {
+  id           String         @id @default(cuid())
+  electorateId String?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  responses    UserResponse[]
+}
+
+model UserResponse {
+  id             String       @id @default(cuid())
+  selected       Boolean      @default(false)
+  sessionId      String
+  session        UserSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  policyOptionId String
+  policyOption   PolicyOption @relation(fields: [policyOptionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+
+  @@unique([sessionId, policyOptionId])
+}
+
+// ==================== CMS / CONTENT ====================
+
+model Page {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  title           String
+  content         String
+  metaTitle       String?
+  metaDescription String?
+  isPublished     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model FAQ {
+  id          String   @id @default(cuid())
+  question    String
+  answer      String
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Article {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  title           String
+  content         String
+  category        String?
+  readTimeMinutes Int      @default(3)
+  thumbnail       String?
+  isPublished     Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Testimonial {
+  id          String   @id @default(cuid())
+  quote       String
+  author      String
+  role        String?
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model NavItem {
+  id        String    @id @default(cuid())
+  label     String
+  url       String
+  location  String    @default("header") // header, footer
+  sortOrder Int       @default(0)
+  parentId  String?
+  parent    NavItem?  @relation("NavItemParent", fields: [parentId], references: [id], onDelete: SetNull)
+  children  NavItem[] @relation("NavItemParent")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+// ==================== SITE SETTINGS ====================
+
+model SiteSettings {
+  id               String   @id @default("singleton")
+  siteName         String   @default("Build a Ballot")
+  tagline          String?  @default("A simple tool to help you build your ballot before election day")
+  logo             String?
+  primaryColor     String   @default("#1a1a2e")
+  secondaryColor   String   @default("#16213e")
+  accentColor      String   @default("#e94560")
+  matchGreenColor  String   @default("#22c55e")
+  matchOrangeColor String   @default("#f97316")
+  matchRedColor    String   @default("#ef4444")
+  matchGreyColor   String   @default("#9ca3af")
+  greenThreshold   Int      @default(70)
+  orangeThreshold  Int      @default(40)
+  fontHeading      String   @default("Libre Baskerville")
+  fontBody         String   @default("Libre Franklin")
+  footerText       String?
+  socialLinks      String?
+  analyticsId      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
