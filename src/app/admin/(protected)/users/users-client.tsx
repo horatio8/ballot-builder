@@ -95,7 +95,7 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
       }
 
       setDialogOpen(false)
-      router.refresh()
+      window.location.reload()
     } finally {
       setLoading(false)
     }
@@ -123,7 +123,7 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
       }
 
       setPasswordDialogOpen(false)
-      router.refresh()
+      window.location.reload()
     } finally {
       setLoading(false)
     }
@@ -137,7 +137,7 @@ export function UsersClient({ users }: { users: AdminUser[] }) {
       alert(data.error || "Failed to delete user")
       return
     }
-    router.refresh()
+    window.location.reload()
   }
 
   return (
