@@ -2,14 +2,38 @@
 
 import { signIn } from "next-auth/react"
 import { useSearchParams } from "next/navigation"
-import { Suspense } from "react"
+import { Suspense, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Vote } from "lucide-react"
+import { Vote, Loader2 } from "lucide-react"
 
 function LoginForm() {
   const searchParams = useSearchParams()
   const error = searchParams.get("error")
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [credentialError, setCredentialError] = useState("")
+
+  const handleCredentialLogin = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setIsLoading(true)
+    setCredentialError("")
+
+    const result = await signIn("credentials", {
+      email,
+      password,
+      callbackUrl: "/admin",
+      redirect: false,
+    })
+
+    if (result?.error) {
+      setCredentialError("Invalid email or password.")
+      setIsLoading(false)
+    } else if (result?.url) {
+      window.location.href = result.url
+    }
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/40 p-4">
@@ -24,13 +48,64 @@ function LoginForm() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          {error && (
+          {(error || credentialError) && (
             <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
               {error === "AccessDenied"
                 ? "Access denied. Your email is not authorized for admin access."
-                : "An error occurred during sign in. Please try again."}
+                : credentialError || "An error occurred during sign in. Please try again."}
             </div>
           )}
+
+          {/* Email & Password Form */}
+          <form onSubmit={handleCredentialLogin} className="space-y-3">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium mb-1">
+                Email
+              </label>
+              <input
+                id="email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="admin@example.com"
+                required
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium mb-1">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="••••••••"
+                required
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </div>
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Signing in...
+                </>
+              ) : (
+                "Sign in with Email"
+              )}
+            </Button>
+          </form>
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+            </div>
+          </div>
 
           <Button
             className="w-full"
